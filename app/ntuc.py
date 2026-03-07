@@ -1,109 +1,90 @@
+import re
+from urllib.parse import quote
+import requests
 from bs4 import BeautifulSoup
-from urllib.request import Request, urlopen
-from pandas.core.tools.numeric import to_numeric
 
-"""
-	CONFIGURATION 
-"""
-url = "https://www.fairprice.com.sg/search?query=" 
-headers = {'User-Agent': 'Mozilla/5.0'} 
 
-# Takes in a search query and returns a list of items on NTUC Fairprice
-# 	that matches the query with their `title`, `price` and `link`
+BASE_URL = "https://www.fairprice.com.sg"
+SEARCH_URL = "https://www.fairprice.com.sg/search?query="
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/122.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "en-SG,en;q=0.9",
+}
 
-# EXAMPLE:
-#	INPUT: 
-# 		"chicken breast whole"
-#	OUTPUT: 
-		# {
-		# 	"Aw's Market Chicken Breast Whole": {
-		# 		'price': 5.0, 
-		# 		'link': '/product/aw-s-market-chicken-breast-whole-400-g-90018633'	
-		# 	}, 
-		# 	"Aw's Market Duck Breast Whole": {
-		# 		'price': 9.45, 
-		# 		'link': '/product/aw-s-market-duck-breast-whole-800-g-90018554'}
-		#	}
-		#}
+
+def _extract_price(text: str):
+    """
+    Return the lowest $ price found in text, e.g. "$10.45 $12.65" -> 10.45
+    """
+    prices = re.findall(r"\$ ?(\d+(?:\.\d{1,2})?)", text.replace(",", ""))
+    if not prices:
+        return None
+    return min(float(p) for p in prices)
+
+
+def _extract_measurement(text: str):
+    """
+    Tries to detect a pack size / weight from text.
+    """
+    patterns = [
+        r"\b\d+(?:\.\d+)?\s?(?:kg|g|mg|ml|l|L)\b",
+        r"\b\d+\s?[xX]\s?\d+(?:\.\d+)?\s?(?:g|kg|ml|l|L)\b",
+        r"\b\d+\s?(?:pcs|pc|s)\b",
+    ]
+    for pattern in patterns:
+        m = re.search(pattern, text, flags=re.IGNORECASE)
+        if m:
+            return m.group(0).replace(" ", "")
+    return ""
+
+
 def search(keywords):
-	# a function to generate the search-query URL
-	def generateURL(url, keywords):
-		queryURL = url
-		cleanedKeywords = keywords.replace(' ', '%20')
-		queryURL = queryURL + cleanedKeywords
+    query = quote(keywords)
+    url = f"{SEARCH_URL}{query}"
 
-		return queryURL
-	
-	req = Request(generateURL(url, keywords), headers=headers)
-	page = urlopen(req)
-	html = page.read().decode("utf-8")
-	soup = BeautifulSoup(html, "html.parser")
+    resp = requests.get(url, headers=HEADERS, timeout=20)
+    resp.raise_for_status()
 
-	matches = soup.select('div[class*="product-container"]')
+    soup = BeautifulSoup(resp.text, "html.parser")
+    results = []
+    seen = set()
 
-	# initialize the array to be returned
-	result = []
+    # Current FairPrice pages expose product links in anchors.
+    for a in soup.select('a[href*="/product/"]'):
+        href = a.get("href", "").strip()
+        text = " ".join(a.stripped_strings)
 
-	for elem in matches:
-		matches = elem.findChildren("a", recursive=False) 
-		
-		for match in matches:
-			"""
-				Step 1: Find the name of the food product
-			"""
-			# the image of the food product contain a 'title' attribute
-			#	that has the name of the food product
-			image = match.findChildren("img")
-			linkToProduct = match.attrs['href']
+        if not href or not text:
+            continue
 
-			"""
-				Step 2: Find the price of the food product
-				
-					THE ISSUE OF MULTIPLE PRICES: 
-					Sometimes the product may be on discount, 
-						so 2 or more prices will be shown. 
+        price = _extract_price(text)
+        if price is None:
+            continue
 
-					To deal with this, we just return the lowest of 
-						all the prices; with the assumption that the lowest 
-						price is the discount price offered to the customer.
-			"""
-			# the span elements of the food product 
-			# 	contain its price
-			spanList = match.findChildren("span")
-			priceList = []
+        title = re.sub(r"\$ ?\d+(?:\.\d{1,2})?", "", text)
+        title = re.sub(r"\s+", " ", title).strip(" -|")
 
-			for span in spanList:
-				# check that the string contained inside the span element is referring to the 
-				# 	price of the food item (and not a button like "add to cart")
-				if ("$" in span.text):
-					cleanedPrice = (span.text).replace('$', '')
-					priceList.append(to_numeric(cleanedPrice))
+        measurement = _extract_measurement(text)
 
-			"""
-				Step 3: Find the weight/volume of the food product
-			"""
-			units = [
-				'kg', 'KG',
-				'g', 'G',
-				'ml', 'ML'
-				'l', 'L'
-			]
+        full_link = href if href.startswith("http") else BASE_URL + href
+        key = (title.lower(), full_link)
 
-			measurement = ""
-			for span in spanList:
-				if (any(x in span.text for x in units) & (len(span.text) <= 15)):
-					measurement = span.text
+        if key in seen:
+            continue
+        seen.add(key)
 
-			"""
-				Step 4: Add the title, price, measurement and link to the food product to the result object
-			"""
-			result.append({
-				'title': image[0].attrs['title'],
-				'price': min(priceList), 
-				'measurement': measurement,
-				'link': "https://www.fairprice.com.sg" + linkToProduct,
-				'supermarket': 'ntuc'
-         	})
-					
-	return result
+        results.append(
+            {
+                "title": title,
+                "price": price,
+                "measurement": measurement,
+                "link": full_link,
+                "supermarket": "ntuc",
+            }
+        )
 
+    return results

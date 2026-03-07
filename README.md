@@ -15,6 +15,7 @@ cd food-pricer
 
 ## **Step 2: Virtual Environment Creation and Package Installation**
 Here, we will create a virtual environemnt, activate it, and install the packages listed in `requirements.txt`.
+<br>
 **Windows:**
 ```bash
 python -m venv myvenv
@@ -63,8 +64,8 @@ There are several ways to go about this.
 ### **Option 1 (Preferred): Download and install Postman to test the API**
 You can install Postman [here](https://www.postman.com/downloads/).
 
-Sign in and create a new API request. Store it in any collection.
-Select the API method as **`POST`**. The link for the API is the localhost link attained in Step 3 (something like http://127.0.0.1:5000).
+Sign in and create a new API request. Store it in any collection. <br>
+Select the API method as **`POST`**. The link for the API is the localhost link attained in Step 3 (something like http://127.0.0.1:5000). <br>
 Under the API method, select the "Body" tab. Select `raw` and make sure the body is stored in `JSON` format.
 
 **Sample Input for JSON:**
@@ -112,8 +113,8 @@ By default, the API will fetch products from your `query` from **all supermarket
 - http://127.0.0.1:5000/sheng-siong
 
 ### **Option 2: Call the API via Command Line**
-**Windows:**
-Begin the Flask server like you did in Step 3. 
+**Windows:** <br>
+Begin the Flask server like you did in Step 3. <br>
 Open **Powershell** in another terminal and run the following to call the API:
 ```Powershell
 Invoke-RestMethod -Method POST `
@@ -132,8 +133,8 @@ PS C:\Users\yeo_j>
 PS C:\Users\yeo_j> $response.results | Format-Table
 ```
 
-**macOS/Linux/Unix:**
-Begin the Flask server like you did in Step 3.
+**macOS/Linux/Unix:** <br>
+Begin the Flask server like you did in Step 3. <br>
 Open another terminal and run the following to call the API:
 ```bash
 curl -X POST http://127.0.0.1:5000/ \
@@ -156,8 +157,8 @@ brew install jq       # macOS
 sudo apt install jq   # Ubuntu / Debian distros
 ```
 
-**Sample Output (Abbreviated for Brevity)**
-**Regular Form**
+**Sample Output (Abbreviated for Brevity):**
+**Regular Form** <br>
 ```JSON
 {
     "results": [
@@ -185,7 +186,7 @@ sudo apt install jq   # Ubuntu / Debian distros
 }
 ```
 
-**Table Form**
+**Table Form:**
 <img width="2825" height="277" alt="image" src="https://github.com/user-attachments/assets/73725f2c-1188-4aee-a2e6-514ad90c02a5" />
 
 By default, the API will fetch products from your `query` from **all supermarkets**. To call a particular supermarket, add the supermarket name in the link, for example:

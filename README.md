@@ -2,7 +2,7 @@ An API used for fetching the prices of food products from online supermarkets in
 
 Perform the following steps to run the API on your localhost (`127.0.0.1`).
 
-### **Step 1: Clone the repository**
+## **Step 1: Clone the repository**
 Using `bash/zsh` (macOS/Linux/Unix) or `cmd/Powershell` (Windows), run
 ```bash
 git clone https://github.com/synchrownicity/food-pricer
@@ -13,7 +13,8 @@ Then, change directory to the cloned repo using:
 cd food-pricer
 ```
 
-### **Step 2: Create a virtual environment, activate it, and install the packages listed in `requirements.txt`**
+## **Step 2: Virtual Environment Creation and Package Installation**
+Here, we will create a virtual environemnt, activate it, and install the packages listed in `requirements.txt`.
 **Windows:**
 ```bash
 python -m venv myvenv
@@ -34,12 +35,12 @@ deactivate
 ```
 
 ### **Step 3: Begin the Flask Server**
-Windows:
+**Windows:**
 ```bash
 python wsgi.py
 ```
 
-Mac/Linux/Unix:
+**macOS/Linux/Unix:**
 ```bash
 python3 wsgi.py
 ```
@@ -56,10 +57,10 @@ Press CTRL+C to quit
  * Debugger PIN: ****-***-****
 ```
 
-### **Step 4: Try out the API**
+## **Step 4: Try out the API**
 There are several ways to go about this.
 
-#### **Option 1 (Preferred): Download and install Postman to test the API**
+### **Option 1 (Preferred): Download and install Postman to test the API**
 You can install Postman [here](https://www.postman.com/downloads/).
 
 Sign in and create a new API request. Store it in any collection.
@@ -110,7 +111,7 @@ By default, the API will fetch products from your `query` from **all supermarket
 - http://127.0.0.1:5000/cold-storage
 - http://127.0.0.1:5000/sheng-siong
 
-#### **Option 2: Call the API via Command Line**
+### **Option 2: Call the API via Command Line**
 **Windows:**
 Begin the Flask server like you did in Step 3. 
 Open **Powershell** in another terminal and run the following to call the API:

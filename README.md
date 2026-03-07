@@ -1,4 +1,14 @@
+### **Original Author: jamesyeap**
+### **Updated By: synchrownicity**
+### **Forked From:** [https://github.com/jamesyeap/food-pricer](https://github.com/jamesyeap/food-pricer)
+
 An API used for fetching the prices of food products from online supermarkets in Singapore (NTUC, Cold Storage and Sheng Siong).
+
+This updated API adds the following features:
+- Support for Sheng Siong online store
+- Updated `requirements.txt` for compatibility with `Python 3.12` and up
+- Improvements to the files in `app` folder to make scrapers more robust against changes in supermarket website UIs
+- Added fuzzy matching for product names to allow more flexible and tolerant search queries
 
 Perform the following steps to run the API on your localhost (`127.0.0.1`).
 
@@ -75,10 +85,10 @@ Under the API method, select the "Body" tab. Select `raw` and make sure the body
 }
 ```
 
-Overall, your Postman page should look like this:
+Overall, your Postman page should look like this: <br><br>
 <img width="2620" height="593" alt="image" src="https://github.com/user-attachments/assets/41bbcdbe-7d7f-4c86-b2bf-557a804c676d" />
 
-Press `Send` to perform the API call.
+Press `Send` to perform the API call. <br><br>
 **Sample Output (Abbreviated for Brevity):**
 ```JSON
 {
@@ -159,7 +169,7 @@ sudo apt install jq   # Ubuntu / Debian distros
 ```
 
 **Sample Output (Abbreviated for Brevity):** <br>
-**Regular Form** <br>
+***Regular Form:*** <br>
 ```JSON
 {
     "results": [
@@ -188,7 +198,7 @@ sudo apt install jq   # Ubuntu / Debian distros
 }
 ```
 
-**Table Form:** <br>
+***Table Form:*** <br><br>
 <img width="2825" height="277" alt="image" src="https://github.com/user-attachments/assets/73725f2c-1188-4aee-a2e6-514ad90c02a5" />
 
 By default, the API will fetch products from your `query` from **all supermarkets**. To call a particular supermarket, add the supermarket name in the link, for example:

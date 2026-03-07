@@ -1,98 +1,196 @@
-An API used for fetching the prices of food products from online supermarkets in Singapore (supports NTUC and Cold-Storage at the moment)
+An API used for fetching the prices of food products from online supermarkets in Singapore (NTUC, Cold Storage and Sheng Siong).
 
-## Searching from both NTUC and Cold-Storage
+Perform the following steps to run the API on your localhost (`127.0.0.1`).
 
-Request method | API endpoint
---- | ---                                                 
-`POST`| https://food-pricer.herokuapp.com/
+### **Step 1: Clone the repository**
+Using `bash/zsh` (macOS/Linux/Unix) or `cmd/Powershell` (Windows), run
+```bash
+git clone https://github.com/synchrownicity/food-pricer
+```
 
-<details><summary>Sample input and output</summary>
-  
-#### Input 
+Then, change directory to the cloned repo using:
+```bash
+cd food-pricer
+```
+
+### **Step 2: Create a virtual environment, activate it, and install the packages listed in `requirements.txt`**
+**Windows:**
+```bash
+python -m venv myvenv
+myvenv\Scripts\activate
+pip install -r requirements.txt
+```
+
+**macOS/Linux/Unix:**
+```bash
+python3 -m venv myvenv
+source myvenv/bin/activate
+pip install -r requirements.txt
+```
+
+You can deactivate the virtual environment after testing by running:
+```bash
+deactivate
+```
+
+### **Step 3: Begin the Flask Server**
+Windows:
+```bash
+python wsgi.py
+```
+
+Mac/Linux/Unix:
+```bash
+python3 wsgi.py
+```
+
+It should display something like:
+```bash
+ * Serving Flask app 'app.api'
+ * Debug mode: on
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on http://127.0.0.1:5000     # This corresponds to your localhost
+Press CTRL+C to quit
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: ****-***-****
+```
+
+### **Step 4: Try out the API**
+There are several ways to go about this.
+
+#### **Option 1 (Preferred): Download and install Postman to test the API**
+You can install Postman [here](https://www.postman.com/downloads/).
+
+Sign in and create a new API request. Store it in any collection.
+Select the API method as **`POST`**. The link for the API is the localhost link attained in Step 3 (something like http://127.0.0.1:5000).
+Under the API method, select the "Body" tab. Select `raw` and make sure the body is stored in `JSON` format.
+
+**Sample Input for JSON:**
 ```JSON
 {
-  "query" : "chicken breast"
+  "query" : "egg"
 }
-  ```
-#### Output (abbreviated for brevity)
+```
+
+Overall, your Postman page should look like this:
+<img width="2620" height="593" alt="image" src="https://github.com/user-attachments/assets/41bbcdbe-7d7f-4c86-b2bf-557a804c676d" />
+
+Press `Send` to perform the API call.
+**Sample Output (Abbreviated for Brevity):**
 ```JSON
 {
     "results": [
         {
-            "link": "https://www.fairprice.com.sg/product/kee-song-boneless-breast-300g-13097675",
-            "measurement": "300g",
-            "price": 2.85,
-            "supermarket": "ntuc",
-            "title": "Kee Song Fresh Chicken - Boneless Breast"
-        },      
-        {
-            "link": "https://coldstorage.com.sg/h-fresh-chicken-breast-2-5034252",
-            "measurement": "1PAK",
-            "price": "3.9",
+            "link": "https://coldstorage.com.sg/en/p/Reese's%20Hollow%20Egg%2092g/i/116398381.html",
+            "measurement": "92g",
+            "price": 7.0,
             "supermarket": "cold-storage",
-            "title": "Fresh Chicken Breast 2 Pieces"
-        }
-  ]
-}
-```
-</details>
-
-## Searching from NTUC only
-
-Request method | API endpoint
---- | ---                                                 
-`POST`| https://food-pricer.herokuapp.com/ntuc/
-
-<details><summary>Sample input and output</summary>
-  
-#### Input 
-```JSON
-{
-  "query" : "chicken breast"
-}
-  ```
-#### Output (abbreviated for brevity)
-```JSON
-{
-    "results": [
+            "title": "$ Reese's Hollow Egg 92g"
+        },
         {
-            "link": "https://www.fairprice.com.sg/product/kee-song-boneless-breast-300g-13097675",
-            "measurement": "300g",
-            "price": 2.85,
-            "supermarket": "ntuc",
-            "title": "Kee Song Fresh Chicken - Boneless Breast"
-        }
-  ]
-}
-```
-</details>
-
-## Searching from Cold-Storage only
-
-Request method | API endpoint
---- | ---                                                 
-`POST`| https://food-pricer.herokuapp.com/cold-storage/
-
-<details><summary>Sample input and output</summary>
-  
-#### Input 
-```JSON
-{
-  "query" : "chicken breast"
-}
-  ```
-#### Output (abbreviated for brevity)
-```JSON
-{
-    "results": [
-        {
-            "link": "https://coldstorage.com.sg/fresh-s-l-chkn-breast-4-5034255",
-            "measurement": "1PAK",
-            "price": "7.35",
+            "link": "https://coldstorage.com.sg/en/p/Darrell%20Lea%20Easter%20Milk%20Chocolate%20Speckle%20Eggs%20120g/i/116398166.html",
+            "measurement": "120g",
+            "price": 8.9,
             "supermarket": "cold-storage",
-            "title": "Skinless Chicken Breast 4 Pieces"
+            "title": "$ Darrell Lea Easter Milk Chocolate Speckle Eggs 120g"
+        },
+        {
+            "link": "https://coldstorage.com.sg/en/p/Zaini%20Hot%20Wheels%20Chocolate%20Egg%2C%2060g/i/113306749.html",
+            "measurement": "60g",
+            "price": 6.75,
+            "supermarket": "cold-storage",
+            "title": "$ Zaini Hot Wheels Chocolate Egg, 60g"
         }
-  ]
 }
 ```
-</details>
+
+By default, the API will fetch products from your `query` from **all supermarkets**. To call a particular supermarket, add the supermarket name in the link, for example:
+- http://127.0.0.1:5000/ntuc
+- http://127.0.0.1:5000/cold-storage
+- http://127.0.0.1:5000/sheng-siong
+
+#### **Option 2: Call the API via Command Line**
+**Windows:**
+Begin the Flask server like you did in Step 3. 
+Open **Powershell** in another terminal and run the following to call the API:
+```Powershell
+Invoke-RestMethod -Method POST `
+>>   -Uri http://127.0.0.1:5000 `
+>>   -Body '{"query":"egg"}' `
+>>   -ContentType "application/json" | ConvertTo-Json -Depth 5
+```
+
+To format the response in the form of a table:
+```Powershell
+$response = Invoke-RestMethod -Method POST `
+>>   -Uri http://127.0.0.1:5000 `
+>>   -Body '{"query":"egg"}' `
+>>   -ContentType "application/json"
+PS C:\Users\yeo_j>
+PS C:\Users\yeo_j> $response.results | Format-Table
+```
+
+**macOS/Linux/Unix:**
+Begin the Flask server like you did in Step 3.
+Open another terminal and run the following to call the API:
+```bash
+curl -X POST http://127.0.0.1:5000/ \
+  -H "Content-Type: application/json" \
+  -d '{"query":"egg"}' | jq
+```
+
+To format the response in the form of a table:
+```bash
+curl -X POST http://127.0.0.1:5000/ \
+  -H "Content-Type: application/json" \
+  -d '{"query":"egg"}' \
+  | jq -r '.results[] | "\(.supermarket)\t\(.title)\t\(.price)\t\(.measurement)"' \
+  | column -t -s $'\t'
+```
+
+If `jq` is not installed on your Unix system, install it by running:
+```bash
+brew install jq       # macOS
+sudo apt install jq   # Ubuntu / Debian distros
+```
+
+**Sample Output (Abbreviated for Brevity)**
+**Regular Form**
+```JSON
+{
+    "results": [
+        {
+            "link": "https://coldstorage.com.sg/en/p/Reese's%20Hollow%20Egg%2092g/i/116398381.html",
+            "measurement": "92g",
+            "price": 7.0,
+            "supermarket": "cold-storage",
+            "title": "$ Reese's Hollow Egg 92g"
+        },
+        {
+            "link": "https://coldstorage.com.sg/en/p/Darrell%20Lea%20Easter%20Milk%20Chocolate%20Speckle%20Eggs%20120g/i/116398166.html",
+            "measurement": "120g",
+            "price": 8.9,
+            "supermarket": "cold-storage",
+            "title": "$ Darrell Lea Easter Milk Chocolate Speckle Eggs 120g"
+        },
+        {
+            "link": "https://coldstorage.com.sg/en/p/Zaini%20Hot%20Wheels%20Chocolate%20Egg%2C%2060g/i/113306749.html",
+            "measurement": "60g",
+            "price": 6.75,
+            "supermarket": "cold-storage",
+            "title": "$ Zaini Hot Wheels Chocolate Egg, 60g"
+        }
+}
+```
+
+**Table Form**
+<img width="2825" height="277" alt="image" src="https://github.com/user-attachments/assets/73725f2c-1188-4aee-a2e6-514ad90c02a5" />
+
+By default, the API will fetch products from your `query` from **all supermarkets**. To call a particular supermarket, add the supermarket name in the link, for example:
+- http://127.0.0.1:5000/ntuc
+- http://127.0.0.1:5000/cold-storage
+- http://127.0.0.1:5000/sheng-siong
+
+
+

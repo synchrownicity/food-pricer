@@ -14,7 +14,7 @@ cd food-pricer
 ```
 
 ## **Step 2: Virtual Environment Creation and Package Installation**
-Here, we will create a virtual environemnt, activate it, and install the packages listed in `requirements.txt`.
+Here, we will create a virtual environment, activate it, and install the packages listed in `requirements.txt`.
 <br>
 **Windows:**
 ```bash
@@ -35,7 +35,7 @@ You can deactivate the virtual environment after testing by running:
 deactivate
 ```
 
-### **Step 3: Begin the Flask Server**
+## **Step 3: Begin the Flask Server**
 **Windows:**
 ```bash
 python wsgi.py
@@ -64,8 +64,8 @@ There are several ways to go about this.
 ### **Option 1 (Preferred): Download and install Postman to test the API**
 You can install Postman [here](https://www.postman.com/downloads/).
 
-Sign in and create a new API request. Store it in any collection. <br>
-Select the API method as **`POST`**. The link for the API is the localhost link attained in Step 3 (something like http://127.0.0.1:5000). <br>
+Sign in and create a new API request. Store it in any collection. <br><br>
+Select the API method as **`POST`**. The API URL is the localhost URL shown in Step 3 (something like http://127.0.0.1:5000). <br><br>
 Under the API method, select the "Body" tab. Select `raw` and make sure the body is stored in `JSON` format.
 
 **Sample Input for JSON:**
@@ -104,37 +104,38 @@ Press `Send` to perform the API call.
             "supermarket": "cold-storage",
             "title": "$ Zaini Hot Wheels Chocolate Egg, 60g"
         }
+  ]
 }
 ```
 
 By default, the API will fetch products from your `query` from **all supermarkets**. To call a particular supermarket, add the supermarket name in the link, for example:
-- http://127.0.0.1:5000/ntuc
-- http://127.0.0.1:5000/cold-storage
-- http://127.0.0.1:5000/sheng-siong
+- http://127.0.0.1:5000/ntuc/
+- http://127.0.0.1:5000/cold-storage/
+- http://127.0.0.1:5000/sheng-siong/
 
 ### **Option 2: Call the API via Command Line**
-**Windows:** <br>
-Begin the Flask server like you did in Step 3. <br>
+**Windows:** <br><br>
+Begin the Flask server like you did in Step 3. <br><br>
 Open **Powershell** in another terminal and run the following to call the API:
 ```Powershell
 Invoke-RestMethod -Method POST `
->>   -Uri http://127.0.0.1:5000 `
->>   -Body '{"query":"egg"}' `
->>   -ContentType "application/json" | ConvertTo-Json -Depth 5
+   -Uri http://127.0.0.1:5000/ `
+   -Body '{"query":"egg"}' `
+   -ContentType "application/json" | ConvertTo-Json -Depth 5
 ```
 
 To format the response in the form of a table:
 ```Powershell
 $response = Invoke-RestMethod -Method POST `
->>   -Uri http://127.0.0.1:5000 `
->>   -Body '{"query":"egg"}' `
->>   -ContentType "application/json"
-PS C:\Users\yeo_j>
-PS C:\Users\yeo_j> $response.results | Format-Table
+   -Uri http://127.0.0.1:5000/ `
+   -Body '{"query":"egg"}' `
+   -ContentType "application/json"
+
+$response.results | Format-Table
 ```
 
-**macOS/Linux/Unix:** <br>
-Begin the Flask server like you did in Step 3. <br>
+**macOS/Linux/Unix:** <br><br>
+Begin the Flask server like you did in Step 3. <br><br>
 Open another terminal and run the following to call the API:
 ```bash
 curl -X POST http://127.0.0.1:5000/ \
@@ -157,7 +158,7 @@ brew install jq       # macOS
 sudo apt install jq   # Ubuntu / Debian distros
 ```
 
-**Sample Output (Abbreviated for Brevity):**
+**Sample Output (Abbreviated for Brevity):** <br>
 **Regular Form** <br>
 ```JSON
 {
@@ -183,16 +184,17 @@ sudo apt install jq   # Ubuntu / Debian distros
             "supermarket": "cold-storage",
             "title": "$ Zaini Hot Wheels Chocolate Egg, 60g"
         }
+  ]
 }
 ```
 
-**Table Form:**
+**Table Form:** <br>
 <img width="2825" height="277" alt="image" src="https://github.com/user-attachments/assets/73725f2c-1188-4aee-a2e6-514ad90c02a5" />
 
 By default, the API will fetch products from your `query` from **all supermarkets**. To call a particular supermarket, add the supermarket name in the link, for example:
-- http://127.0.0.1:5000/ntuc
-- http://127.0.0.1:5000/cold-storage
-- http://127.0.0.1:5000/sheng-siong
+- http://127.0.0.1:5000/ntuc/
+- http://127.0.0.1:5000/cold-storage/
+- http://127.0.0.1:5000/sheng-siong/
 
 
 

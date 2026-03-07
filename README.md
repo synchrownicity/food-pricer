@@ -1,6 +1,6 @@
 ## **Credits**
-- **Original Author: jamesyeap**
-- **Updated By: synchrownicity**
+- **Original Author:** [jamesyeap](https://github.com/jamesyeap)
+- **Updated By:** [synchrownicity](https://github.com/synchrownicity)
 - **Forked From:** [https://github.com/jamesyeap/food-pricer](https://github.com/jamesyeap/food-pricer)
 
 ## **Features and Functionalities**

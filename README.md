@@ -1,7 +1,9 @@
-### **Original Author: jamesyeap**
-### **Updated By: synchrownicity**
-### **Forked From:** [https://github.com/jamesyeap/food-pricer](https://github.com/jamesyeap/food-pricer)
+## **Credits**
+- **Original Author: jamesyeap**
+- **Updated By: synchrownicity**
+- **Forked From:** [https://github.com/jamesyeap/food-pricer](https://github.com/jamesyeap/food-pricer)
 
+## **Features and Functionalities**
 An API used for fetching the prices of food products from online supermarkets in Singapore (NTUC, Cold Storage and Sheng Siong).
 
 This updated API adds the following features:

@@ -5,6 +5,7 @@ import string
 import time
 from typing import Any, Dict
 from bs4 import BeautifulSoup
+import websocket
 
 from curl_cffi import requests as cf_requests
 from curl_cffi.requests import Session
@@ -114,14 +115,21 @@ def _warm_session() -> None:
 def _search_inner(query: str, page: int, page_size: int, timeout: float):
     _warm_session()
 
+    cookie_str = "; ".join(f"{k}={v}" for k, v in _session.cookies.get_dict().items())
+
     server_id = _random_server_id()
     session_id = _random_session_id()
     ws_url = f"{WS_BASE}/{server_id}/{session_id}/websocket"
     print("[SS] opening websocket:", ws_url)
 
-    ws = _session.ws_connect(
+    ws = websocket.create_connection(
         ws_url,
-        headers={"Origin": BASE_URL},
+        timeout=timeout,
+        header=[
+            f"Origin: {BASE_URL}",
+            f"User-Agent: {HEADERS['User-Agent']}",
+            f"Cookie: {cookie_str}",
+        ],
     )
 
     try:

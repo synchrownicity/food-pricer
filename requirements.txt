@@ -22,3 +22,4 @@ Werkzeug>=3.0
 rapidfuzz>=3.9
 websocket-client>=1.8
 flask-cors
+curl_cffi>=0.6.0

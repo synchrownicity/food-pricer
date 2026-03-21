@@ -1,8 +1,8 @@
 import re
+import json
 from urllib.parse import quote
 import requests
 from bs4 import BeautifulSoup
-
 
 BASE_URL = "https://www.fairprice.com.sg"
 SEARCH_URL = "https://www.fairprice.com.sg/search?query="
@@ -16,20 +16,7 @@ HEADERS = {
 }
 
 
-def _extract_price(text: str):
-    """
-    Return the lowest $ price found in text, e.g. "$10.45 $12.65" -> 10.45
-    """
-    prices = re.findall(r"\$ ?(\d+(?:\.\d{1,2})?)", text.replace(",", ""))
-    if not prices:
-        return None
-    return min(float(p) for p in prices)
-
-
 def _extract_measurement(text: str):
-    """
-    Tries to detect a pack size / weight from text.
-    """
     patterns = [
         r"\b\d+(?:\.\d+)?\s?(?:kg|g|mg|ml|l|L)\b",
         r"\b\d+\s?[xX]\s?\d+(?:\.\d+)?\s?(?:g|kg|ml|l|L)\b",
@@ -50,29 +37,42 @@ def search(keywords):
     resp.raise_for_status()
 
     soup = BeautifulSoup(resp.text, "html.parser")
+    script = soup.find("script", id="__NEXT_DATA__")
+    if not script or not script.string:
+        return []
+
+    data = json.loads(script.string)
+
+    layouts = data["props"]["pageProps"]["data"]["data"]["page"]["layouts"]
+
+    product_collection = None
+    for layout in layouts:
+        if layout.get("name") == "ProductCollection":
+            product_collection = layout.get("value", {}).get("collection", {})
+            break
+
+    if not product_collection:
+        return []
+
+    products = product_collection.get("product", [])
     results = []
     seen = set()
 
-    # Current FairPrice pages expose product links in anchors.
-    for a in soup.select('a[href*="/product/"]'):
-        href = a.get("href", "").strip()
-        text = " ".join(a.stripped_strings)
+    for item in products:
+        title = (item.get("name") or "").strip()
+        price = item.get("final_price")
+        slug = item.get("slug") or ""
+        images = item.get("images") or []
+        metadata = item.get("metaData") or {}
 
-        if not href or not text:
+        if not title:
             continue
 
-        price = _extract_price(text)
-        if price is None:
-            continue
+        image = images[0] if images else ""
+        measurement = metadata.get("DisplayUnit") or _extract_measurement(title)
+        link = f"{BASE_URL}/product/{slug}" if slug else ""
 
-        title = re.sub(r"\$ ?\d+(?:\.\d{1,2})?", "", text)
-        title = re.sub(r"\s+", " ", title).strip(" -|")
-
-        measurement = _extract_measurement(text)
-
-        full_link = href if href.startswith("http") else BASE_URL + href
-        key = (title.lower(), full_link)
-
+        key = (title.lower(), link)
         if key in seen:
             continue
         seen.add(key)
@@ -80,9 +80,10 @@ def search(keywords):
         results.append(
             {
                 "title": title,
-                "price": price,
+                "price": round(float(price), 2) if price is not None else None,
                 "measurement": measurement,
-                "link": full_link,
+                "link": link,
+                "image": image,
                 "supermarket": "ntuc",
             }
         )

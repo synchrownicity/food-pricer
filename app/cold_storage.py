@@ -1,9 +1,6 @@
-import re
 import requests
-from bs4 import BeautifulSoup
 import re
-from rapidfuzz import fuzz
-
+from urllib.parse import quote
 
 HEADERS = {
     "User-Agent": (
@@ -11,31 +8,17 @@ HEADERS = {
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/122.0.0.0 Safari/537.36"
     ),
+    "Accept": "application/json, text/plain, */*",
     "Accept-Language": "en-SG,en;q=0.9",
+    "Content-Type": "application/json",
+    "Origin": "https://coldstorage.com.sg",
+    "Referer": "https://coldstorage.com.sg/",
 }
 
-# Stable entry pages that visibly contain products today.
-CANDIDATE_URLS = [
-    "https://coldstorage.com.sg/",
-    "https://coldstorage.com.sg/category/100015-100184-101103/1.html?order=6&perpage=36&view=grid",
-    "https://coldstorage.com.sg/category/100015-100186-101111/1.html?order=6&perpage=36&view=grid",
-]
+SEARCH_URL = "https://coldstorage.com.sg/api/item/searchTemplateData"
 
 
-def _normalize_spaces(text: str) -> str:
-    return re.sub(r"\s+", " ", text).strip()
-
-
-def _extract_price(text: str):
-    # Handles "$8 .90" and "$8.90"
-    cleaned = text.replace(" .", ".").replace(". ", ".")
-    matches = re.findall(r"\$ ?(\d+(?:\.\d{1,2})?)", cleaned.replace(",", ""))
-    if not matches:
-        return None
-    return min(float(x) for x in matches)
-
-
-def _extract_measurement(text: str):
+def _extract_measurement(text: str) -> str:
     patterns = [
         r"\b\d+(?:\.\d+)?\s?(?:kg|g|mg|ml|l|L)\b",
         r"\b\d+\s?[xX]\s?\d+(?:\.\d+)?\s?(?:g|kg|ml|l|L)\b",
@@ -47,105 +30,93 @@ def _extract_measurement(text: str):
             return m.group(0).replace(" ", "")
     return ""
 
-def _keyword_match(text: str, keywords: str, threshold: int = 90) -> bool:
-    """
-    Returns True if ANY keyword token matches the product text closely enough.
 
-    Behaviour:
-    - OR matching: only one query word needs to match
-    - Fuzzy matching: allows small spelling differences / word variations
-    - Case-insensitive
-
-    Example:
-    keywords = "baby diapers"
-    -> matches if either "baby" or "diapers" fuzzily matches the text
-    """
-    text_l = text.lower().strip()
-    keyword_tokens = [w for w in re.split(r"\s+", keywords.lower().strip()) if w]
-
-    if not text_l or not keyword_tokens:
-        return False
-
-    for token in keyword_tokens:
-        # Check token against full product title
-        if fuzz.partial_ratio(token, text_l) >= threshold:
-            return True
-
-    return False
-
-def _parse_page(url):
-    resp = requests.get(url, headers=HEADERS, timeout=20)
-    resp.raise_for_status()
-    soup = BeautifulSoup(resp.text, "html.parser")
-
-    products = []
-
-    for a in soup.find_all("a", href=True):
-        text = _normalize_spaces(" ".join(a.stripped_strings))
-        href = a["href"].strip()
-
-        if not text:
-            continue
-
-        price = _extract_price(text)
-        measurement = _extract_measurement(text)
-
-        # We only care about anchors that look like products.
-        if price is None:
-            continue
-
-        if not any(unit in text.lower() for unit in ["kg", "g", "ml", "l", "delivery only", "find similar", "add to cart"]):
-            continue
-
-        title = text
-        title = re.sub(r"Buy \d+ for \$\d+(?:\.\d+)?", "", title, flags=re.IGNORECASE)
-        title = re.sub(r"Sold Out", "", title, flags=re.IGNORECASE)
-        title = re.sub(r"Delivery only", "", title, flags=re.IGNORECASE)
-        title = re.sub(r"Find Similar", "", title, flags=re.IGNORECASE)
-        title = re.sub(r"Add to Cart", "", title, flags=re.IGNORECASE)
-        title = re.sub(r"\$ ?\d+(?:\s?\.\s?\d{1,2})?", "", title)
-        title = _normalize_spaces(title)
-
-        if not title:
-            continue
-
-        if href.startswith("/"):
-            href = "https://coldstorage.com.sg" + href
-        elif not href.startswith("http"):
-            href = "https://coldstorage.com.sg/" + href.lstrip("/")
-
-        products.append(
-            {
-                "title": title,
-                "price": price,
-                "measurement": measurement,
-                "link": href,
-                "supermarket": "cold-storage",
-            }
-        )
-
-    return products
+def _build_payload(keyword: str, page_num: int = 1, page_size: int = 20) -> dict:
+    return {
+        "comm": {
+            "dmTenantId": 10,
+            "venderId": 12,
+            "businessCode": 1,
+            "origin": 26,
+            "pickUpStoreId": "",
+            "shipmentType": 1,
+            "storeId": 550989,
+            "superweb-locale": "en_US",
+        },
+        "param": {
+            "businessCode": 1,
+            "categoryType": 1,
+            "erpStoreId": 550989,
+            "filterProperties": [],
+            "keyword": keyword,
+            "pageNum": str(page_num),
+            "pageSize": page_size,
+            "sortKey": 0,
+            "sortRule": 0,
+            "venderId": 12,
+        },
+    }
 
 
-def search(keywords):
+def _normalise_price(value):
+    if value in (None, "", "null"):
+        return None
+
+    try:
+        price = float(value)
+    except (TypeError, ValueError):
+        return None
+
+    # Convert cents → dollars AND format to 2dp
+    return round(price / 100, 2)
+
+
+def _pick_price(item: dict):
+    for key in ["onlinePromotionPrice", "onlinePrice", "warePrice", "offlinePrice"]:
+        price = _normalise_price(item.get(key))
+        if price is not None:
+            return price
+    return None
+
+
+def _build_search_link(keyword: str) -> str:
+    return f"https://coldstorage.com.sg/search?keyword={quote(keyword)}"
+
+
+def search(keywords: str, max_pages: int = 1):
     results = []
     seen = set()
 
-    for url in CANDIDATE_URLS:
-        try:
-            page_results = _parse_page(url)
-        except Exception as e:
-            print(f"[WARN] Cold Storage page failed: {url} -> {e}")
-            continue
+    for page in range(1, max_pages + 1):
+        payload = _build_payload(keywords, page_num=page, page_size=20)
 
-        for item in page_results:
-            if not _keyword_match(item["title"], keywords):
+        resp = requests.post(SEARCH_URL, json=payload, headers=HEADERS, timeout=20)
+        resp.raise_for_status()
+        data = resp.json()
+
+        items = data.get("data", {}).get("productList", [])
+        if not items:
+            break
+
+        for item in items:
+            title = (item.get("wareName") or "").strip()
+            price = _pick_price(item)
+
+            if not title:
                 continue
 
-            key = (item["title"].lower(), item["link"])
+            key = (str(item.get("wareId")), str(item.get("sku")))
             if key in seen:
                 continue
             seen.add(key)
-            results.append(item)
+
+            results.append({
+                "title": title,
+                "price": price,
+                "measurement": _extract_measurement(title),
+                "link": _build_search_link(title),
+                "image": item.get("wareImg"),   # 👈 ADD THIS
+                "supermarket": "cold-storage",
+            })
 
     return results

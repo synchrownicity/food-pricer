@@ -4,6 +4,7 @@ import re
 import string
 import time
 from typing import Any, Dict, List
+from bs4 import BeautifulSoup
 
 import requests
 import websocket
@@ -38,7 +39,7 @@ def _normalize_spaces(text: str) -> str:
 
 def _make_product_link(slug: str) -> str:
     # Adjust this if Sheng Siong uses a different product route later
-    return f"{BASE_URL}/products/{slug}"
+    return f"{BASE_URL}/product/{slug}"
 
 
 def _build_method_payload(query: str, page: int = 1, page_size: int = 24) -> Dict[str, Any]:
@@ -78,19 +79,23 @@ def _build_method_payload(query: str, page: int = 1, page_size: int = 24) -> Dic
     }
 
 
-def _format_result(item: Dict[str, Any]) -> Dict[str, Any]:
+def _format_result(item):
     brand = _normalize_spaces(item.get("brand", ""))
     name = _normalize_spaces(item.get("name", ""))
     title = _normalize_spaces(f"{brand} {name}").strip()
 
     measurement = item.get("packSize", "") or ""
     slug = item.get("slug", "") or ""
+    link = _make_product_link(slug) if slug else BASE_URL
+
+    image = _extract_image(item, link)
 
     return {
         "title": title,
-        "price": item.get("price", 0),
+        "price": round(float(item.get("price", 0)), 2),
         "measurement": measurement,
-        "link": _make_product_link(slug) if slug else BASE_URL,
+        "link": link,
+        "image": image,
         "supermarket": "sheng-siong",
     }
 
@@ -244,3 +249,30 @@ def search(keywords: str, page: int = 1, page_size: int = 24, timeout: float = 1
             ws.close()
         except Exception:
             pass
+
+### Helper function
+def _extract_image(item, link):
+    # try fast method first
+    img_key = item.get("imgKey")
+    if img_key:
+        return f"{BASE_IMG}{img_key}.0.jpg"
+
+    # fallback to scraping product page
+    return _fetch_image_from_page(link)
+
+BASE_IMG = "https://ssecomm.s3-ap-southeast-1.amazonaws.com/products/lg/"
+
+def _fetch_image_from_page(link):
+    try:
+        resp = requests.get(link, headers=HEADERS, timeout=10)
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        img = soup.find("img")
+        if img:
+            src = img.get("src") or img.get("data-src") or ""
+            return src
+
+    except Exception:
+        return ""
+
+    return ""

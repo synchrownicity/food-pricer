@@ -1,10 +1,12 @@
 import flask
 from flask import request, jsonify
+from flask_cors import CORS
 from app.ntuc import search as searchNTUC
 from app.cold_storage import search as searchColdStorage
 from app.sheng_siong import search as searchShengSiong
 
 app = flask.Flask(__name__)
+CORS(app)
 app.config["DEBUG"] = True
 
 

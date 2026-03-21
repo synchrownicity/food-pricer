@@ -126,18 +126,21 @@ def _send_sockjs_frame(ws: websocket.WebSocket, payload: Dict[str, Any]) -> None
 
 def search(keywords: str, page: int = 1, page_size: int = 24, timeout: float = 20.0):
     query = keywords.strip()
+    print("[SS] query:", query)
+
     if not query:
         return []
 
     print("[SS] starting search", query)
 
+    print("[SS] extracting cookies...")
     cookie_header = _extract_cookies()
-    print("[SS] cookies acquired")
+    print("[SS] extracting cookies...")
 
     server_id = _random_server_id()
     session_id = _random_session_id()
     ws_url = f"{WS_BASE}/{server_id}/{session_id}/websocket"
-    print("[SS] connecting websocket", ws_url)
+    print("[SS] opening websocket:", ws_url)
 
     ws = websocket.create_connection(
         ws_url,
@@ -148,8 +151,9 @@ def search(keywords: str, page: int = 1, page_size: int = 24, timeout: float = 2
             f"Cookie: {cookie_header}",
         ],
     )
-    print("[SS] websocket connected")
 
+    print("[SS] opening websocket:", ws_url)
+    
     try:
         target_method_id = "1"
 
@@ -183,6 +187,7 @@ def search(keywords: str, page: int = 1, page_size: int = 24, timeout: float = 2
             if raw.startswith("a"):
                 try:
                     messages = json.loads(raw[1:])
+                    print("[SS] websocket opened")
                 except Exception:
                     continue
 
@@ -239,6 +244,7 @@ def search(keywords: str, page: int = 1, page_size: int = 24, timeout: float = 2
                             continue
 
                         cleaned.append(_format_result(item))
+                    print("[SS] cleaned found:", len(cleaned))
 
                     return cleaned
 

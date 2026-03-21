@@ -1,4 +1,5 @@
 import flask
+import traceback
 from flask import request, jsonify
 from flask_cors import CORS
 from app.ntuc import search as searchNTUC
@@ -9,12 +10,12 @@ app = flask.Flask(__name__)
 CORS(app)
 app.config["DEBUG"] = True
 
-
 def _safe_search(fn, query):
     try:
         return fn(query)
     except Exception as e:
         print(f"[WARN] scraper failed: {fn.__name__}: {e}")
+        traceback.print_exc()
         return []
 
 

@@ -124,21 +124,20 @@ def _send_sockjs_frame(ws: websocket.WebSocket, payload: Dict[str, Any]) -> None
     ws.send(frame)
 
 
-def search(keywords: str, page: int = 1, page_size: int = 24, timeout: float = 12.0) -> List[Dict[str, Any]]:
-    """
-    Query Sheng Siong via Meteor DDP over SockJS websocket.
-
-    Returns results in the same schema as your other scrapers.
-    """
+def search(keywords: str, page: int = 1, page_size: int = 24, timeout: float = 20.0):
     query = keywords.strip()
     if not query:
         return []
 
+    print("[SS] starting search", query)
+
     cookie_header = _extract_cookies()
+    print("[SS] cookies acquired")
 
     server_id = _random_server_id()
     session_id = _random_session_id()
     ws_url = f"{WS_BASE}/{server_id}/{session_id}/websocket"
+    print("[SS] connecting websocket", ws_url)
 
     ws = websocket.create_connection(
         ws_url,
@@ -149,6 +148,7 @@ def search(keywords: str, page: int = 1, page_size: int = 24, timeout: float = 1
             f"Cookie: {cookie_header}",
         ],
     )
+    print("[SS] websocket connected")
 
     try:
         target_method_id = "1"

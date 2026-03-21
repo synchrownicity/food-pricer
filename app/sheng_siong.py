@@ -135,7 +135,7 @@ def search(keywords: str, page: int = 1, page_size: int = 24, timeout: float = 2
 
     print("[SS] extracting cookies...")
     cookie_header = _extract_cookies()
-    print("[SS] extracting cookies...")
+    print("[SS] cookie header:", cookie_header)
 
     server_id = _random_server_id()
     session_id = _random_session_id()

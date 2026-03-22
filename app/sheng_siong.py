@@ -5,7 +5,6 @@ import string
 import time
 from typing import Any, Dict
 from bs4 import BeautifulSoup
-import websocket
 
 from curl_cffi import requests as cf_requests
 from curl_cffi.requests import Session
@@ -25,9 +24,9 @@ HEADERS = {
 }
 
 # Module-level session — shared between HTTP cookie fetch and WS connection
-_session = Session(impersonate="chrome120")
-_session.headers.update(HEADERS)
 
+def _create_session():
+    return Session(impersonate = "chrome120")
 
 def _random_server_id() -> str:
     return str(random.randint(0, 999)).zfill(3)
@@ -105,31 +104,24 @@ def _send_sockjs_frame(ws, payload: Dict[str, Any]) -> None:
     ws.send(frame)
 
 
-def _warm_session() -> None:
+def _warm_session(session) -> None:
     """Hit the homepage so _session holds valid Incapsula cookies before WS connect."""
-    resp = _session.get(BASE_URL, timeout=20)
+    resp = session.get(BASE_URL, timeout=20)
     resp.raise_for_status()
-    print("[SS] cookies:", "; ".join(f"{k}={v}" for k, v in _session.cookies.get_dict().items()))
+    print("[SS] cookies:", "; ".join(f"{k}={v}" for k, v in session.cookies.get_dict().items()))
 
 
-def _search_inner(query: str, page: int, page_size: int, timeout: float):
-    _warm_session()
-
-    cookie_str = "; ".join(f"{k}={v}" for k, v in _session.cookies.get_dict().items())
+def _search_inner(session, query: str, page: int, page_size: int, timeout: float):
+    _warm_session(session)
 
     server_id = _random_server_id()
     session_id = _random_session_id()
     ws_url = f"{WS_BASE}/{server_id}/{session_id}/websocket"
     print("[SS] opening websocket:", ws_url)
 
-    ws = websocket.create_connection(
+    ws = session.ws_connect(
         ws_url,
-        timeout=timeout,
-        header=[
-            f"Origin: {BASE_URL}",
-            f"User-Agent: {HEADERS['User-Agent']}",
-            f"Cookie: {cookie_str}",
-        ],
+        headers={"Origin": BASE_URL},
     )
 
     try:
@@ -229,7 +221,8 @@ def search(keywords: str, page: int = 1, page_size: int = 24, timeout: float = 2
 
     for attempt in range(2):
         try:
-            return _search_inner(query, page, page_size, timeout)
+            session = _create_session()
+            return _search_inner(session, query, page, page_size, timeout)
         except Exception as e:
             if attempt == 1:
                 raise

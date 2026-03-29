@@ -3,8 +3,11 @@ import random
 import re
 import string
 import time
-from typing import Any, Dict
+from typing import Any, Dict, List
 from bs4 import BeautifulSoup
+
+#import requests
+#import websocket
 
 from curl_cffi import requests as cf_requests
 from curl_cffi.requests import Session
@@ -12,23 +15,19 @@ from curl_cffi.requests import Session
 
 BASE_URL = "https://shengsiong.com.sg"
 WS_BASE = "wss://shengsiong.com.sg/sockjs"
-BASE_IMG = "https://ssecomm.s3-ap-southeast-1.amazonaws.com/products/lg/"
 
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/120.0.0.0 Safari/537.36"
+        "Chrome/145.0.0.0 Safari/537.36"
     ),
     "Accept-Language": "en-SG,en;q=0.9",
 }
 
-# Module-level session — shared between HTTP cookie fetch and WS connection
-
-def _create_session():
-    return Session(impersonate = "chrome120")
 
 def _random_server_id() -> str:
+    # SockJS commonly uses a 3-digit-ish server id in the URL
     return str(random.randint(0, 999)).zfill(3)
 
 
@@ -42,10 +41,14 @@ def _normalize_spaces(text: str) -> str:
 
 
 def _make_product_link(slug: str) -> str:
+    # Adjust this if Sheng Siong uses a different product route later
     return f"{BASE_URL}/product/{slug}"
 
 
 def _build_method_payload(query: str, page: int = 1, page_size: int = 24) -> Dict[str, Any]:
+    """
+    Build the DDP method call you discovered from DevTools.
+    """
     return {
         "msg": "method",
         "id": "1",
@@ -87,6 +90,7 @@ def _format_result(item):
     measurement = item.get("packSize", "") or ""
     slug = item.get("slug", "") or ""
     link = _make_product_link(slug) if slug else BASE_URL
+
     image = _extract_image(item, link)
 
     return {
@@ -99,115 +103,24 @@ def _format_result(item):
     }
 
 
-def _send_sockjs_frame(ws, payload: Dict[str, Any]) -> None:
-    frame = json.dumps([json.dumps(payload)])
-    ws.send(frame)
-
-
-def _warm_session(session) -> None:
-    """Hit the homepage so _session holds valid Incapsula cookies before WS connect."""
+def _extract_cookies_and_headers() -> tuple[str, dict]:
+    """Returns (cookie_string, response_headers) from a fingerprint-spoofed request."""
+    session = Session(impersonate="chrome120")
+    session.headers.update(HEADERS)
     resp = session.get(BASE_URL, timeout=20)
     resp.raise_for_status()
-    print("[SS] cookies:", "; ".join(f"{k}={v}" for k, v in session.cookies.get_dict().items()))
+    cookie_str = "; ".join(f"{k}={v}" for k, v in session.cookies.get_dict().items())
+    return cookie_str, dict(resp.headers)
 
 
-def _search_inner(session, query: str, page: int, page_size: int, timeout: float):
-    _warm_session(session)
-
-    server_id = _random_server_id()
-    session_id = _random_session_id()
-    ws_url = f"{WS_BASE}/{server_id}/{session_id}/websocket"
-    print("[SS] opening websocket:", ws_url)
-
-    ws = session.ws_connect(
-        ws_url,
-        headers={"Origin": BASE_URL},
-    )
-
-    try:
-        target_method_id = "1"
-
-        # 1) Wait for SockJS open frame
-        start = time.time()
-        while time.time() - start < timeout:
-            raw = ws.recv()
-            if raw == "o":
-                break
-        else:
-            raise TimeoutError("Did not receive SockJS open frame.")
-
-        # 2) Send Meteor DDP connect
-        _send_sockjs_frame(ws, {
-            "msg": "connect",
-            "version": "1",
-            "support": ["1", "pre2", "pre1"],
-        })
-
-        # 3) Wait for DDP connected ack
-        start = time.time()
-        connected = False
-        while time.time() - start < timeout:
-            raw = ws.recv()
-            if raw == "h":
-                continue
-            if raw.startswith("a"):
-                try:
-                    messages = json.loads(raw[1:])
-                except Exception:
-                    continue
-                for msg in messages:
-                    try:
-                        data = json.loads(msg)
-                    except Exception:
-                        continue
-                    if data.get("msg") == "connected":
-                        connected = True
-                        break
-            if connected:
-                break
-
-        if not connected:
-            raise TimeoutError("Did not receive DDP connected message.")
-
-        print("[SS] websocket connected")
-
-        # 4) Send search method
-        _send_sockjs_frame(ws, _build_method_payload(query, page=page, page_size=page_size))
-
-        # 5) Wait for result
-        start = time.time()
-        while time.time() - start < timeout:
-            raw = ws.recv()
-            if raw == "h":
-                continue
-            if not raw.startswith("a"):
-                continue
-            try:
-                messages = json.loads(raw[1:])
-            except Exception:
-                continue
-            for msg in messages:
-                try:
-                    data = json.loads(msg)
-                except Exception:
-                    continue
-                if data.get("msg") == "result" and data.get("id") == target_method_id:
-                    products = data.get("result", []) or []
-                    cleaned = [
-                        _format_result(item)
-                        for item in products
-                        if item.get("listingOnEcomm", False)
-                    ]
-                    print("[SS] cleaned found:", len(cleaned))
-                    return cleaned
-
-        return []
-
-    finally:
-        try:
-            ws.close()
-        except Exception:
-            pass
+def _send_sockjs_frame(ws, payload: Dict[str, Any]) -> None:
+    """
+    SockJS websocket transport expects messages wrapped in a JSON array string.
+    Example:
+    ["{\"msg\":\"connect\",\"version\":\"1\",\"support\":[\"1\",\"pre2\",\"pre1\"]}"]
+    """
+    frame = json.dumps([json.dumps(payload)])
+    ws.send(frame)
 
 
 def search(keywords: str, page: int = 1, page_size: int = 24, timeout: float = 20.0):
@@ -219,25 +132,138 @@ def search(keywords: str, page: int = 1, page_size: int = 24, timeout: float = 2
 
     print("[SS] starting search", query)
 
-    for attempt in range(2):
+    print("[SS] extracting cookies...")
+    cookie_header, _ = _extract_cookies_and_headers()
+    print("[SS] cookie header:", cookie_header)
+
+    server_id = _random_server_id()
+    session_id = _random_session_id()
+    ws_url = f"{WS_BASE}/{server_id}/{session_id}/websocket"
+    print("[SS] opening websocket:", ws_url)
+
+    ws = _session.ws_connect(
+        ws_url,
+        headers={
+            "Origin": BASE_URL,
+            "User-Agent": HEADERS["User-Agent"],
+        }
+    )
+
+    print("[SS] opening websocket:", ws_url)
+    
+    try:
+        target_method_id = "1"
+
+        # 1) Wait for SockJS open frame: usually "o"
+        start = time.time()
+        while time.time() - start < timeout:
+            raw = ws.recv()
+            if raw == "o":
+                break
+        else:
+            raise TimeoutError("Did not receive SockJS open frame.")
+
+        # 2) Send Meteor DDP connect message
+        connect_payload = {
+            "msg": "connect",
+            "version": "1",
+            "support": ["1", "pre2", "pre1"],
+        }
+        _send_sockjs_frame(ws, connect_payload)
+
+        # 3) Wait for DDP connected acknowledgement
+        start = time.time()
+        connected = False
+        while time.time() - start < timeout:
+            raw = ws.recv()
+
+            if raw == "h":
+                # SockJS heartbeat
+                continue
+
+            if raw.startswith("a"):
+                try:
+                    messages = json.loads(raw[1:])
+                    print("[SS] websocket opened")
+                except Exception:
+                    continue
+
+                for msg in messages:
+                    try:
+                        data = json.loads(msg)
+                    except Exception:
+                        continue
+
+                    if data.get("msg") == "connected":
+                        connected = True
+                        break
+
+            if connected:
+                break
+
+        if not connected:
+            raise TimeoutError("Did not receive DDP connected message.")
+
+        # 4) Send the actual product search method you discovered
+        method_payload = _build_method_payload(query, page=page, page_size=page_size)
+        _send_sockjs_frame(ws, method_payload)
+
+        # 5) Wait for the matching result id
+        start = time.time()
+        while time.time() - start < timeout:
+            raw = ws.recv()
+
+            if raw == "h":
+                continue
+
+            if not raw.startswith("a"):
+                continue
+
+            try:
+                messages = json.loads(raw[1:])
+            except Exception:
+                continue
+
+            for msg in messages:
+                try:
+                    data = json.loads(msg)
+                except Exception:
+                    continue
+
+                # We only care about the result for our method call
+                if data.get("msg") == "result" and data.get("id") == target_method_id:
+                    products = data.get("result", []) or []
+
+                    cleaned = []
+                    for item in products:
+                        # Only keep live ecommerce listings
+                        if not item.get("listingOnEcomm", False):
+                            continue
+
+                        cleaned.append(_format_result(item))
+                    print("[SS] cleaned found:", len(cleaned))
+
+                    return cleaned
+
+        return []
+
+    finally:
         try:
-            session = _create_session()
-            return _search_inner(session, query, page, page_size, timeout)
-        except Exception as e:
-            if attempt == 1:
-                raise
-            print(f"[SS] attempt {attempt + 1} failed ({e}), retrying...")
-            time.sleep(1)
+            ws.close()
+        except Exception:
+            pass
 
-
-### Helper functions
-
+### Helper function
 def _extract_image(item, link):
+    # try fast method first
     img_key = item.get("imgKey")
     if img_key:
         return f"{BASE_IMG}{img_key}.0.jpg"
+
+    # fallback to scraping product page
     return _fetch_image_from_page(link)
 
+BASE_IMG = "https://ssecomm.s3-ap-southeast-1.amazonaws.com/products/lg/"
 
 def _fetch_image_from_page(link):
     try:

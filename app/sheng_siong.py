@@ -6,11 +6,8 @@ import time
 from typing import Any, Dict, List
 from bs4 import BeautifulSoup
 
-#import requests
-#import websocket
-
-from curl_cffi import requests as cf_requests
-from curl_cffi.requests import Session
+import requests
+import websocket
 
 
 BASE_URL = "https://shengsiong.com.sg"
@@ -103,17 +100,21 @@ def _format_result(item):
     }
 
 
-def _extract_cookies_and_headers() -> tuple[str, dict]:
-    """Returns (cookie_string, response_headers) from a fingerprint-spoofed request."""
-    session = Session(impersonate="chrome120")
+def _extract_cookies() -> str:
+    """
+    Hit the homepage first so we get the anti-bot / session cookies
+    needed for the websocket handshake.
+    """
+    session = requests.Session()
     session.headers.update(HEADERS)
+
     resp = session.get(BASE_URL, timeout=20)
     resp.raise_for_status()
-    cookie_str = "; ".join(f"{k}={v}" for k, v in session.cookies.get_dict().items())
-    return cookie_str, dict(resp.headers)
+
+    return "; ".join(f"{k}={v}" for k, v in session.cookies.get_dict().items())
 
 
-def _send_sockjs_frame(ws, payload: Dict[str, Any]) -> None:
+def _send_sockjs_frame(ws: websocket.WebSocket, payload: Dict[str, Any]) -> None:
     """
     SockJS websocket transport expects messages wrapped in a JSON array string.
     Example:
@@ -123,34 +124,32 @@ def _send_sockjs_frame(ws, payload: Dict[str, Any]) -> None:
     ws.send(frame)
 
 
-def search(keywords: str, page: int = 1, page_size: int = 24, timeout: float = 20.0):
-    query = keywords.strip()
-    print("[SS] query:", query)
+def search(keywords: str, page: int = 1, page_size: int = 24, timeout: float = 12.0) -> List[Dict[str, Any]]:
+    """
+    Query Sheng Siong via Meteor DDP over SockJS websocket.
 
+    Returns results in the same schema as your other scrapers.
+    """
+    query = keywords.strip()
     if not query:
         return []
 
-    print("[SS] starting search", query)
-
-    print("[SS] extracting cookies...")
-    cookie_header, _ = _extract_cookies_and_headers()
-    print("[SS] cookie header:", cookie_header)
+    cookie_header = _extract_cookies()
 
     server_id = _random_server_id()
     session_id = _random_session_id()
     ws_url = f"{WS_BASE}/{server_id}/{session_id}/websocket"
-    print("[SS] opening websocket:", ws_url)
 
-    ws = _session.ws_connect(
+    ws = websocket.create_connection(
         ws_url,
-        headers={
-            "Origin": BASE_URL,
-            "User-Agent": HEADERS["User-Agent"],
-        }
+        timeout=timeout,
+        header=[
+            f"Origin: {BASE_URL}",
+            f"User-Agent: {HEADERS['User-Agent']}",
+            f"Cookie: {cookie_header}",
+        ],
     )
 
-    print("[SS] opening websocket:", ws_url)
-    
     try:
         target_method_id = "1"
 
@@ -184,7 +183,6 @@ def search(keywords: str, page: int = 1, page_size: int = 24, timeout: float = 2
             if raw.startswith("a"):
                 try:
                     messages = json.loads(raw[1:])
-                    print("[SS] websocket opened")
                 except Exception:
                     continue
 
@@ -241,7 +239,6 @@ def search(keywords: str, page: int = 1, page_size: int = 24, timeout: float = 2
                             continue
 
                         cleaned.append(_format_result(item))
-                    print("[SS] cleaned found:", len(cleaned))
 
                     return cleaned
 
@@ -267,11 +264,15 @@ BASE_IMG = "https://ssecomm.s3-ap-southeast-1.amazonaws.com/products/lg/"
 
 def _fetch_image_from_page(link):
     try:
-        resp = cf_requests.get(link, impersonate="chrome120", headers=HEADERS, timeout=10)
+        resp = requests.get(link, headers=HEADERS, timeout=10)
         soup = BeautifulSoup(resp.text, "html.parser")
+
         img = soup.find("img")
         if img:
-            return img.get("src") or img.get("data-src") or ""
+            src = img.get("src") or img.get("data-src") or ""
+            return src
+
     except Exception:
         return ""
+
     return ""

@@ -85,4 +85,4 @@ def search(keyword: str):
             "supermarket": "cold-storage",
         })
 
-    return {"results": results}
+    return results
